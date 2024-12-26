@@ -1,0 +1,9 @@
+{"name":"sophia","address":{"country":"korea","city":"seoul"},"age": 29,"hobbies":["running","reading","game"}
+
+{ "name": "sophia","address": { "country": "korea","city": "seoul" },"age": 29,"hobbies":["running","reading","game"]}
+{ "name": "noah","address": { "country": "usa","city": "new york" },"age": 34,"hobbies":["dancing"]}
+{ "name": "emma","address": { "country": "france","city": "paris" },"age": 18,"hobbies":[]}
+{ "name": "olivia","address": { "country": "australia","city": "sydney" },"age": 22,"hobbies":["drawing","baking"]}
+{ "name": "jocop","address": { "country": "newzealand","city": "Wellington" },"age": 41,"hobbies":["chess","cooking"]}
+{ "name": "mason","address": { "country": "germany","city": "berlin" },"age": 27,"hobbies":[]}
+
