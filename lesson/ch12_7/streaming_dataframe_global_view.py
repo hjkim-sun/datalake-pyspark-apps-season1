@@ -37,6 +37,7 @@ kafka_source_df = spark.readStream \
                 .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
                 .option("subscribe", "lesson.spark-streaming.person_info") \
                 .option('startingOffsets', 'earliest') \
+                .option('failOnDataLoss','false') \
                 .load() \
                 .selectExpr(
                     "CAST(key AS STRING) AS KEY",

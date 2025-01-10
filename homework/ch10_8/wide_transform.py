@@ -5,6 +5,10 @@ import time
 spark = SparkSession \
         .builder \
         .appName('wide_transform.py') \
+        .config('spark.executor.memory', '2g') \
+        .config('spark.executor.instances', '3') \
+        .config('spark.executor.cores', '2') \
+        .config('spark.sql.adaptive.enabled', 'false') \
         .getOrCreate()
 
 print(f'spark application start')
@@ -38,6 +42,5 @@ cnt_per_skills_df = job_skills_df.join(
     .agg(count('job_id').alias('job_count')) \
     .sort('job_count', ascending=False)
 
-cnt_per_skills_df.persist()
-cnt_per_skills_df.show(truncate=False)
-time.sleep(600)
+print(cnt_per_skills_df.count())
+time.sleep(1200)

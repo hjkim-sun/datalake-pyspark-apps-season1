@@ -2,13 +2,13 @@ from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
 
 
-def for_each_batch_func(df:DataFrame, epoch):
-    print(f'epoch: {epoch} start')
+def for_each_batch_func(df:DataFrame, epoch_id):
+    print(f'====================================== epoch_id: {epoch_id} start ======================================')
     cnt = df.count()
     print(f'streaming 데이터프레임 건수:{cnt}')
     print(f'streaming 데이터프레임 show()')
     df.show(truncate=False)
-    print(f'epoch: {epoch} end')
+    print(f'====================================== epoch_id: {epoch_id} end ======================================')
 
 
 app_name = 'for_each_batch'
@@ -22,6 +22,7 @@ kafka_source_df = spark.readStream \
                 .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
                 .option("subscribe", "lesson.spark-streaming.test") \
                 .option('maxOffsetsPerTrigger','500') \
+                .option('failOnDataLoss','false') \
                 .option('startingOffsets','earliest') \
                 .load() \
                 .selectExpr(

@@ -7,7 +7,6 @@ from pyspark.sql.types import IntegerType
 class RtBicycleRent(BaseStreamApp):
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.SPARK_SQL_SHUFFLE_PARTITIONS = '2'
 
     def main(self):
         # sparkSession 객체 얻기
@@ -22,6 +21,8 @@ class RtBicycleRent(BaseStreamApp):
             .format("kafka") \
             .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
             .option("subscribe", "lesson.spark-streaming.rslt-sample") \
+            .option('startingOffsets', 'earliest') \
+            .option('failOnDataLoss', 'false') \
             .load() \
             .selectExpr(
                 "CAST(key AS STRING) AS KEY",

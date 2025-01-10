@@ -1,4 +1,4 @@
-from common.ch15_5.base_stream_app import BaseStreamApp
+from common.ch15_7.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import get_json_object, col
 from pyspark.sql.types import IntegerType
@@ -10,7 +10,6 @@ from common.kafka_sender import send_to_kafka_json_payload
 class RtBicycleRent(BaseStreamApp):
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.SPARK_SQL_SHUFFLE_PARTITIONS = '2'
         self.last_dttm = ''
 
     def init_call(self, spark_session: SparkSession):
@@ -82,8 +81,6 @@ class RtBicycleRent(BaseStreamApp):
         bicycle-producer 에서 1회 전송하는 건수는 약 3400 건이나, Micro Batch 시작시 df 건수는 3400 미만이 되거나
         maxOffsetsPerTrigger(=10000) 정도의 건수가 될 수 있으므로(Spark job Down 후 재시작시) 이를 고려하여 함수 작성 필요
         '''
-        self.logger.write_log('info', 'Micro batch start', epoch_id)
-
         df.persist()
         self.logger.write_log('info', f'df.count(): {df.count()}', epoch_id)
 
@@ -99,7 +96,6 @@ class RtBicycleRent(BaseStreamApp):
             )
 
         df.unpersist()
-        self.logger.write_log('info', f'Micro batch end', epoch_id)
 
     def sink_to_s3(self, last_stt_df: DataFrame, dttm: str, stream_df: DataFrame, epoch_id):
         if self.log_mode == 'debug':

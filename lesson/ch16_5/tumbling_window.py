@@ -1,4 +1,4 @@
-from common.ch15_5.base_stream_app import BaseStreamApp
+from common.ch15_7.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import from_json, col, explode, window
 from pyspark.sql.types import StructType, StructField, ArrayType, StringType, TimestampType
@@ -8,8 +8,6 @@ from pyspark.sql import SparkSession
 class TumblingWindow(BaseStreamApp):
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.SPARK_SQL_SHUFFLE_PARTITIONS = '2'
-        self.last_dttm = ''
 
     def main(self):
         schema = StructType([
@@ -45,9 +43,7 @@ class TumblingWindow(BaseStreamApp):
         query.awaitTermination()
 
     def _for_each_batch(self, df: DataFrame, epoch_id: int, spark: SparkSession):
-        self.logger.write_log('info', 'Micro batch start', epoch_id)
         df.orderBy('window').show(truncate=False)
-        self.logger.write_log('info', 'Micro batch end', epoch_id)
 
 
 if __name__ == '__main__':

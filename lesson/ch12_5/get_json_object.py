@@ -5,10 +5,11 @@ from pyspark.sql.types import IntegerType
 
 
 def for_each_batch_func(df: DataFrame, epoch_id):
-    print(f'epoch_id: {epoch_id} start')
-    print(f'streaming dataframe show()')
+    print(f'====================================== epoch_id: {epoch_id} start ======================================')
     df.persist()
+    print(f'streaming dataframe show()')
     df.show(truncate=False)
+
     json_to_col_df = df.select(
         col('VALUE'),
         get_json_object(col('VALUE'),'$.name').alias('NAME'),
@@ -19,7 +20,7 @@ def for_each_batch_func(df: DataFrame, epoch_id):
     print(f'json_to_col_df.show()')
     json_to_col_df.show(truncate=False)
     df.unpersist()
-    print(f'epoch_id: {epoch_id} end')
+    print(f'====================================== epoch_id: {epoch_id} end ======================================')
 
 app_name = 'get_json_object'
 spark = SparkSession \
@@ -32,6 +33,7 @@ kafka_source_df = spark.readStream \
                 .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
                 .option("subscribe", "lesson.spark-streaming.person_info") \
                 .option('startingOffsets','latest') \
+                .option('failOnDataLoss','false') \
                 .load() \
                 .selectExpr(
                     "CAST(key AS STRING) AS KEY",

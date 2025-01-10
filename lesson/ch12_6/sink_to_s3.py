@@ -5,9 +5,9 @@ from pyspark.sql.types import IntegerType
 
 
 def for_each_batch_func(df: DataFrame, epoch_id):
-    print(f'epoch_id: {epoch_id} start')
-    print(f'streaming dataframe show()')
+    print(f'====================================== epoch_id: {epoch_id} start ======================================')
     df.persist()
+    print(f'streaming dataframe show()')
     df.show(truncate=False)
 
     json_to_col_df = df.select(
@@ -24,7 +24,7 @@ def for_each_batch_func(df: DataFrame, epoch_id):
 
     print(f'json_to_col_df 저장 완료 ({df_cnt}건)')
     df.unpersist()
-    print(f'epoch_id: {epoch_id} end')
+    print(f'====================================== epoch_id: {epoch_id} end ======================================')
 
 
 app_name = 'sink_to_s3'
@@ -38,6 +38,7 @@ kafka_source_df = spark.readStream \
                 .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
                 .option("subscribe", "lesson.spark-streaming.person_info") \
                 .option('startingOffsets','earliest') \
+                .option('failOnDataLoss','false') \
                 .load() \
                 .selectExpr(
                     "CAST(key AS STRING) AS KEY",
@@ -51,11 +52,10 @@ rslt = spark.sql(f'''CREATE TABLE IF NOT EXISTS person_info(
                 country   STRING,
                 city      STRING,
                 age       INT)
+              USING hive OPTIONS(fileFormat 'parquet')  
               LOCATION 's3a://datalake-spark-sink/lesson/person_info'
-              STORED AS PARQUET
               '''
                  )
-print(f'rslt: {rslt}')
 print('Table Create (if not exists) completed ')
 
 query = kafka_source_df.writeStream \
