@@ -6,7 +6,7 @@ spark = SparkSession \
     .getOrCreate()
 
 socket_df = spark.readStream \
-    .format("file") \
+    .format("socket") \
     .option('host', 'localhost') \
     .option('port', '1234') \
     .load()
