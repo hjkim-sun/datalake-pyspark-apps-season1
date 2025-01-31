@@ -22,7 +22,7 @@ class TumblingWindow(BaseStreamApp):
         df = spark.readStream \
                 .format('kafka') \
                 .option('kafka.bootstrap.servers','kafka01:9092,kafka02:9092,kafka03:9092') \
-                .option('subscribe','lesson.ch16-5.tumbling-window') \
+                .option('subscribe','lesson.ch16_5.tumbling-window') \
                 .option('maxOffsetsPerTrigger','1') \
                 .load() \
                 .selectExpr('CAST(key AS STRING) AS KEY',
@@ -38,6 +38,7 @@ class TumblingWindow(BaseStreamApp):
         query = df.writeStream \
                 .foreachBatch(lambda df, epoch: self.for_each_batch(df, epoch, spark)) \
                 .outputMode('complete') \
+                .option("checkpointLocation", self.kafka_offset_dir) \
                 .start()
 
         query.awaitTermination()

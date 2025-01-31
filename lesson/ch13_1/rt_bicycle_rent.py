@@ -38,8 +38,8 @@ class RtBicycleRent(BaseStreamApp):
         '''
         df.persist()
         cnt = df.count()
-        self.logger('info', f'streaming 인입 건수: {cnt}')
-        self.logger('info', f'df.show()')
+        self.logger.write_log('info', f'streaming 인입 건수: {cnt}')
+        self.logger.write_log('info', f'df.show()')
         df.show(truncate=False)
         df.unpersist()
 

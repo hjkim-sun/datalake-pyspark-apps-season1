@@ -1,4 +1,4 @@
-from common.ch13_1.base_stream_app import BaseStreamApp
+from common.ch13_4.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import get_json_object, col
 from pyspark.sql.types import IntegerType
@@ -15,16 +15,16 @@ class RtBicycleRent(BaseStreamApp):
         spark = self.get_session_builder().getOrCreate()
 
         # 체크포인트 경로 설정, sparkSession 변수를 통해 설정합니다.
-        spark.sparkContext.setCheckpointDir(f'/home/spark/dataframe_checkpoints/{self.app_name}')
+        spark.sparkContext.setCheckpointDir(self.dataframe_chkpnt_dir)
 
         # rslt_df 데이터프레임 공유하기
-        self.rslt_df = spark.createDataFrame([(None,None,None,None),],'STT_ID STRING, BASE_DT STRING, RENT_CNT INT, RETURN_CNT INT')
+        self.rslt_df = spark.createDataFrame([],'STT_ID STRING, BASE_DT STRING, RENT_CNT INT, RETURN_CNT INT')
 
         streaming_query = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
             .option("subscribe", "lesson.spark-streaming.rslt-sample") \
-            .option('startingOffsets', 'earliest') \
+            .option('startingOffsets', 'latest') \
             .option('failOnDataLoss', 'false') \
             .load() \
             .selectExpr(
@@ -57,12 +57,16 @@ class RtBicycleRent(BaseStreamApp):
 
         self.logger.write_log('info','rslt_df.show()',epoch_id)
         before_rdd_id = self.rslt_df.rdd.id()
-        self.rslt_df.checkpoint()
+        self.rslt_df = self.rslt_df.checkpoint()
         after_rdd_id = self.rslt_df.rdd.id()
 
         # checkpoint 과정에서 Spark 내부적으로 여러 단계로 처리되며 rdd-id 가 증가하게 됩니다.
-        self.logger.write_log('info', f'self.rslt_df 체크포인트 완료, rdd_id 범위:{before_rdd_id} ~ {after_rdd_id})', epoch_id)
+        if self.log_mode == 'debug':
+            self.logger.write_log('debug', f'self.rslt_df 체크포인트 완료, rdd_id 범위:{before_rdd_id} ~ {after_rdd_id})', epoch_id)
+            self.logger.write_log('debug', f'self.rslt_df.explain()', epoch_id)
+            self.rslt_df.explain()
         self.rslt_df.show(truncate=False)
+
 
 if __name__ == '__main__':
     rt_bicycle_rent = RtBicycleRent(app_name='dataframe_checkpoint')

@@ -15,13 +15,13 @@ class RtBicycleRent(BaseStreamApp):
         spark = self.get_session_builder().getOrCreate()
 
         # rslt_df 데이터프레임 공유하기
-        self.rslt_df = spark.createDataFrame([(None,None,None,None),],'STT_ID STRING, BASE_DT STRING, RENT_CNT INT, RETURN_CNT INT')
+        self.rslt_df = spark.createDataFrame([],'STT_ID STRING, BASE_DT STRING, RENT_CNT INT, RETURN_CNT INT')
 
         streaming_query = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", "kafka01:9092,kafka02:9092,kafka03:9092") \
             .option("subscribe", "lesson.spark-streaming.rslt-sample") \
-            .option('startingOffsets', 'earliest') \
+            .option('startingOffsets', 'latest') \
             .option('failOnDataLoss', 'false') \
             .load() \
             .selectExpr(

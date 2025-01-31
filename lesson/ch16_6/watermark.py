@@ -26,7 +26,7 @@ class Watermark(BaseStreamApp):
         df = spark.readStream \
                 .format('kafka') \
                 .option('kafka.bootstrap.servers','kafka01:9092,kafka02:9092,kafka03:9092') \
-                .option('subscribe','lesson.ch16-6.watermark') \
+                .option('subscribe','lesson.ch16_6.watermark') \
                 .option('maxOffsetsPerTrigger','1') \
                 .load() \
                 .selectExpr('CAST(key AS STRING) AS KEY',
@@ -43,6 +43,7 @@ class Watermark(BaseStreamApp):
         query = df.writeStream \
                 .foreachBatch(lambda df, epoch: self.for_each_batch(df, epoch, spark)) \
                 .outputMode('update') \
+                .option("checkpointLocation", self.kafka_offset_dir) \
                 .start()
 
         query.awaitTermination()
@@ -54,3 +55,12 @@ class Watermark(BaseStreamApp):
 if __name__ == '__main__':
     watermark = Watermark(app_name='watermark')
     watermark.main()
+
+# 데이터는 아래 참고하여 토픽(lesson.ch16_6.watermark) 에 전송 (Value로 하나씩)
+'''
+{"PERSON":[{"NAME":"HONG","EVN_TS":"2025-01-01 13:50:23"},{"NAME":"PARK","EVN_TS":"2025-01-01 14:23:15"}]}
+{"PERSON":[{"NAME":"KIM","EVN_TS":"2025-01-01 13:17:01"},{"NAME":"PARK","EVN_TS":"2025-01-01 13:29:15"},{"NAME":"HONG","EVN_TS":"2025-01-01 14:32:31"}]}
+{"PERSON":[{"NAME":"KIM","EVN_TS":"2025-01-01 13:29:15"},{"NAME":"HONG","EVN_TS":"2025-01-01 13:33:01"}]}
+{"PERSON":[{"NAME":"CHOI","EVN_TS":"2025-01-01 14:45:09"},{"NAME":"HONG","EVN_TS":"2025-01-01 14:01:13"},{"NAME":"HONG","EVN_TS":"2025-01-01 14:30:07"}]}
+{"PERSON":[{"NAME":"CHOI","EVN_TS":"2025-01-01 13:44:59"},{"NAME":"KIM","EVN_TS":"2025-01-01 13:45:02"}]}
+'''

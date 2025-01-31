@@ -1,4 +1,4 @@
-from common.ch13_1.base_stream_app import BaseStreamApp
+from common.ch13_4.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import get_json_object, col
 from pyspark.sql.types import IntegerType
@@ -47,7 +47,7 @@ class RtBicycleRent(BaseStreamApp):
         spark = self.get_session_builder().getOrCreate()
 
         # 체크포인트 경로 설정, sparkSession 변수를 통해 설정합니다.
-        spark.sparkContext.setCheckpointDir(f'/home/spark/dataframe_checkpoints/{self.app_name}')
+        spark.sparkContext.setCheckpointDir(self.dataframe_chkpnt_dir)
 
         self.init_call(spark)
 
@@ -104,23 +104,26 @@ class RtBicycleRent(BaseStreamApp):
             self.logger.write_log('debug', 'stream_df.show()', epoch_id)
             stream_df.show(truncate=False)
 
+        cloned_last_stt_df = last_stt_df.select('*')
+
         # 마지막 처리한 dttm과 현재 처리 중인 dttm 시간 구간이 10분 이상 차이나면 (bicycle-producer 중단 후 재기동한 경우)
         # rent_cnt, return_cnt 에 왜곡이 생기므로 결과 전송하지 않고 last_stt_df 를 빈 데이터프레임으로 만들어 self.last_stt_info_df 만 갱신하도록 유도
         if len(self.last_dttm) > 0:
             time_diff = datetime.strptime(dttm, '%Y-%m-%d %H:%M:%S') - datetime.strptime(self.last_dttm, '%Y-%m-%d %H:%M:%S')
-            if time_diff.seconds > 600:     # 10분
-                last_stt_df = last_stt_df.filter(col('stt_id') == 'nothing')
+            if time_diff.days >= 0 and time_diff.seconds > 600:     # 10분
+                cloned_last_stt_df = cloned_last_stt_df.filter(col('stt_id') == 'nothing')
 
         # 마지막 정류소별 보관 대수를 저장한 last_stt_df 를 이용해 이번 시간대 대여소별 따릉이 RENT, RETURN 개수를 구합니다.
+        # 만약 last_stt_df 의 lst_prk_cnt 컬럼이 null일 경우 diff_prk_cnt 값은 0 으로 셋팅합니다.
         processed_df = stream_df.alias('s').join(
-            other=last_stt_df.alias('l'),
+            other=cloned_last_stt_df.alias('l'),
             on='stt_id',
             how='left'
         ).selectExpr(
             'stt_id',
             'TO_TIMESTAMP(s.crt_dttm)                                           AS crt_dttm',
             's.stt_nm                                                           AS stt_nm',
-            'NVL(l.lst_prk_cnt, s.tot_rack_cnt) - s.tot_prk_cnt                 AS diff_prk_cnt',
+            'NVL(l.lst_prk_cnt - tot_prk_cnt, 0)                                AS diff_prk_cnt',
             's.tot_prk_cnt                                                      AS tot_prk_cnt',
             's.stt_lttd                                                         AS stt_lttd',
             's.stt_lgtd                                                         AS stt_lgtd',
@@ -145,12 +148,17 @@ class RtBicycleRent(BaseStreamApp):
             col('stt_id').isNotNull()
         ).persist()
 
+        if self.log_mode == 'debug':
+            self.logger.write_log('debug', 'processed_df.show()', epoch_id)
+            processed_df.show(truncate=False)
+
         # spark job 최초 기동시 last_stt_info_df 데이터프레임은 비어있으므로 RENT_CNT와 RETURN_CNT 값은 부정확한 상태
         # 이 경우 processed_df 는 전송하지 않고 LST_PRK_CNT 값을 이용해 last_stt_info_df를 만드는데만 사용
         # 다음 데이터부터 전송하기 시작
-        if not last_stt_df.isEmpty():
+        # processed_df 파티션 개수를 1개로 축소한 후 S3에 전송 (너무 많은 파일이 생기지 않도록)
+        if not cloned_last_stt_df.isEmpty():
             # Sink to S3
-            processed_df.write \
+            processed_df.coalesce(1).write \
                 .format("parquet") \
                 .mode('append') \
                 .option("path", "s3a://datalake-spark-sink/lesson/bicycle_rent_info") \
@@ -159,7 +167,7 @@ class RtBicycleRent(BaseStreamApp):
 
             self.logger.write_log('info', f'Completed: Sink to S3 (기준 시간: {dttm})', epoch_id)
 
-        now_stt_info_df = last_stt_df.alias('l').join(
+        now_stt_info_df = cloned_last_stt_df.alias('l').join(
                 other=processed_df.alias('p'),
                 on=['stt_id'],
                 how='full'
@@ -179,5 +187,4 @@ class RtBicycleRent(BaseStreamApp):
 if __name__ == '__main__':
     rt_bicycle_rent = RtBicycleRent(app_name='rt_bicycle_rent')
     rt_bicycle_rent.main()
-
 

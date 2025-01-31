@@ -1,4 +1,4 @@
-from common.ch15_5.base_stream_app import BaseStreamApp
+from common.ch15_8.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import from_json, col, explode
 from pyspark.sql.types import StructType, StructField, ArrayType, StringType
@@ -9,9 +9,6 @@ import time
 class CompleteMode(BaseStreamApp):
     def __init__(self, app_name):
         super().__init__(app_name)
-        self.SPARK_SQL_SHUFFLE_PARTITIONS = '2'
-        self.log_mode = 'info'
-        self.last_dttm = ''
 
     def main(self):
         schema = StructType([
@@ -33,20 +30,19 @@ class CompleteMode(BaseStreamApp):
                             'CAST(value AS STRING) AS VALUE') \
                 .select(from_json(col('VALUE'), schema).alias('VALUE_JSON')) \
                 .select(explode(col('VALUE_JSON.NAME')).alias('NAME')) \
-                .groupBy('NAME').count() \
+                .groupBy('NAME').count()
 
         query = df.writeStream \
                 .foreachBatch(lambda df, epoch: self.for_each_batch(df, epoch, spark)) \
                 .outputMode('complete') \
+                .option("checkpointLocation", self.kafka_offset_dir) \
                 .start()
 
         query.awaitTermination()
 
     def _for_each_batch(self, df: DataFrame, epoch_id: int, spark: SparkSession):
-        self.logger.write_log('info', 'Micro batch start', epoch_id)
         df.show(truncate=False)
         time.sleep(10)
-        self.logger.write_log('info', 'Micro batch end', epoch_id)
 
 
 if __name__ == '__main__':
