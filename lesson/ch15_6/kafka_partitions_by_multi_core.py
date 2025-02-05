@@ -1,4 +1,4 @@
-from common.ch13_1.base_stream_app import BaseStreamApp
+from common.ch13_4.base_stream_app import BaseStreamApp
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import get_json_object, col
 from pyspark.sql.types import IntegerType
@@ -17,9 +17,6 @@ class KafkaPartitionsByMultiCore(BaseStreamApp):
         # sparkSession 객체 얻기
         # 만약 다른 parameter를 추가하고 싶다면 self.get_session_builder() 뒤에 .config()을 사용하여 파라미터를 추가하고 getOrCreate 합니다.
         spark = self.get_session_builder().getOrCreate()
-
-        # 체크포인트 경로 설정, sparkSession 변수를 통해 설정합니다.
-        spark.sparkContext.setCheckpointDir(f'/home/spark/dataframe_checkpoints/{self.app_name}')
 
         streaming_query = spark.readStream \
             .format("kafka") \

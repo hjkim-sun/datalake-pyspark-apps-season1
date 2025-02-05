@@ -10,17 +10,16 @@ class BaseStreamApp():
     def __init__(self, app_name):
         self.app_name = app_name
         self.kafka_offset_dir = f'/home/spark/kafka_offsets/{app_name}'  # Kafka Offset Checkpoint 경로 지정
+        self.dataframe_chkpnt_dir = f'/home/spark/dataframe_checkpoints/{self.app_name}'  # DataFrame Checkpoint 경로 지정
 
         # Spark Parameter 에 대한 설정
         # 잘 변경되지 않으며 고정되는 파라미터는 $SPARK_HOME/conf/spark-defaults.conf 에 설정하고
         # 프로그램마다 변경될 수 있는 파라미터들은 이 함수에 정의하도록 합니다.
 
-        self.SPARK_DRIVER_CORES = '1'
-        self.SPARK_DRIVER_MEMORY = '1g'
-        self.SPARK_EXECUTOR_INSTANCES = '2'
+        self.SPARK_EXECUTOR_INSTANCES = '3'
         self.SPARK_EXECUTOR_MEMORY = '2g'
         self.SPARK_EXECUTOR_CORES = '2'
-        self.SPARK_SQL_SHUFFLE_PARTITIONS = '4'
+        self.SPARK_SQL_SHUFFLE_PARTITIONS = '6'
 
         # 파라미터 input 설정
         self.log_mode = ''
@@ -33,7 +32,7 @@ class BaseStreamApp():
         self.consumer = Consumer(
             {
                 'bootstrap.servers': self.KAFKA_BOOTSTRAP_SERVERS,
-                'group_id': self.kafka_group_id,
+                'group.id': self.kafka_group_id,
                 'enable.auto.commit':'false'
             }
         )
@@ -48,8 +47,6 @@ class BaseStreamApp():
         return SparkSession \
             .builder \
             .appName(self.app_name) \
-            .config('spark.driver.cores', self.SPARK_DRIVER_CORES) \
-            .config('spark.driver.memory', self.SPARK_DRIVER_MEMORY) \
             .config('spark.executor.memory', self.SPARK_EXECUTOR_MEMORY) \
             .config('spark.executor.instances', self.SPARK_EXECUTOR_INSTANCES) \
             .config('spark.executor.cores', self.SPARK_EXECUTOR_CORES) \
@@ -59,10 +56,10 @@ class BaseStreamApp():
         '''
         _for_each_batch 함수 실행 전, 후 공통 로직 삽입용도
         '''
-        print(f'====================================== epoch_id: {epoch_id} start ======================================')
+        self.logger.write_log('info',f'============================= epoch_id: {epoch_id} start =============================',epoch_id)
         self._for_each_batch(df, epoch_id, spark)
         self.offset_commit(epoch_id)
-        print(f'====================================== epoch_id: {epoch_id} end ======================================')
+        self.logger.write_log('info',f'============================= epoch_id: {epoch_id} end =============================',epoch_id)
 
     def _for_each_batch(self, df: DataFrame, epoch_id, spark: SparkSession):
         '''
@@ -71,7 +68,7 @@ class BaseStreamApp():
         pass
 
     def offset_commit(self, epoch_id):
-        offset_info = self.get_popen_rslt(f'hdfs dfs -cat /home/spark/kafka_offsets/{self.app_name}/offsets/{epoch_id}')
+        offset_info = self.get_popen_rslt(f'/engine/hadoop-3.3.6/bin/hdfs dfs -cat /home/spark/kafka_offsets/{self.app_name}/offsets/{epoch_id}')
 
         offset_info_dict = json.loads(offset_info.split('\n')[2])  # 첫 번째 라인은 v1, 두 번째 라인은 옵션list, 세 번째 라인이 offset 정보
         offset_target_lst = []
@@ -84,8 +81,8 @@ class BaseStreamApp():
                         offset=offset
                     )
                 )
-        self.consumer.commit(offset=offset_info_dict)
-        self.logger.write_log('info',f'{self.kafka_group_id} commit 완료 ({offset_info_dict})', epoch_id)
+        self.consumer.commit(offsets=offset_target_lst)
+        self.logger.write_log('info',f'{self.kafka_group_id} commit 완료 ({offset_target_lst})', epoch_id)
 
     def get_popen_rslt(self, cmd):
         return os.popen(cmd).read()

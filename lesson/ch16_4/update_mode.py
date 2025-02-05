@@ -19,21 +19,22 @@ class UpdateMode(BaseStreamApp):
         spark = self.get_session_builder().getOrCreate()
 
         df = spark.readStream \
-                .format('kafka') \
-                .option('kafka.bootstrap.servers','kafka01:9092,kafka02:9092,kafka03:9092') \
-                .option('subscribe','lesson.ch16_4.output-mode') \
-                .option('maxOffsetsPerTrigger','1') \
-                .load() \
-                .selectExpr('CAST(key AS STRING) AS KEY',
-                            'CAST(value AS STRING) AS VALUE') \
-                .select(from_json(col('VALUE'), schema).alias('VALUE_JSON')) \
-                .select(explode(col('VALUE_JSON.NAME')).alias('NAME')) \
-                .groupBy('NAME').count() \
+            .format('kafka') \
+            .option('kafka.bootstrap.servers','kafka01:9092,kafka02:9092,kafka03:9092') \
+            .option('subscribe','lesson.ch16_4.output-mode') \
+            .option('maxOffsetsPerTrigger','1') \
+            .load() \
+            .selectExpr('CAST(key AS STRING) AS KEY',
+                        'CAST(value AS STRING) AS VALUE') \
+            .select(from_json(col('VALUE'), schema).alias('VALUE_JSON')) \
+            .select(explode(col('VALUE_JSON.NAME')).alias('NAME')) \
+            .groupBy('NAME').count()
 
         query = df.writeStream \
-                .foreachBatch(lambda df, epoch: self.for_each_batch(df, epoch, spark)) \
-                .outputMode('complete') \
-                .start()
+            .foreachBatch(lambda df, epoch: self.for_each_batch(df, epoch, spark)) \
+            .outputMode('update') \
+            .option("checkpointLocation", self.kafka_offset_dir) \
+            .start()
 
         query.awaitTermination()
 
